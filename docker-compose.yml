@@ -1,0 +1,13 @@
+services:
+  balkonaut:
+    image: ghcr.io/balkonaut/balkonaut-docker:latest
+    # Selbst bauen statt fertiges Image: Kern nach kern/ holen (siehe README), nächste Zeile aktivieren,
+    # dann docker compose up -d --build
+    # build: .
+    ports:
+      - "${BALKONAUT_PORT:-8000}:8000"
+    environment:
+      - TZ=${TZ:-Europe/Berlin}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

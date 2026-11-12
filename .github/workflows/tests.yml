@@ -1,0 +1,24 @@
+# Tests der Docker-App gegen den Kern aus balkonaut/balkonaut (bei einem Release derselbe Tag, sonst main).
+# docker.yml ruft diesen Workflow auf und baut nur, wenn er bestanden ist.
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: balkonaut/balkonaut
+          ref: ${{ github.event_name == 'release' && github.ref_name || 'main' }}
+          path: kern
+      - run: docker build --target test .

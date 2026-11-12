@@ -1,0 +1,11 @@
+# Nicht in den Build-Kontext: Zugangsdaten, .env, Messdaten, lokale Umgebungen
+.*-token
+.git
+data
+.venv*
+site
+handbuch
+**/__pycache__
+.env
+.github-token-docker
+kern/.git

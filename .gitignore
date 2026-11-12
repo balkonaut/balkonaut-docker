@@ -1,0 +1,12 @@
+.gitea-token
+.github-token*
+.env
+__pycache__/
+*.pyc
+.venv/
+data/
+.pytest_cache/
+.DS_Store
+handbuch/
+kern/
+tools/victron-mock/test-data/

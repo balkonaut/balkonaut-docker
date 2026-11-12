@@ -1,0 +1,75 @@
+# Docker-Image für amd64 und arm64 nach ghcr.io, nur bei einem Release (ohne Vorabversionen):
+# Tags mit der Version (z. B. 1.0.3) und latest. Ein Push auf main baut kein Image.
+# Kern und Handbuch kommen aus balkonaut/balkonaut mit demselben Tag; der muss dort schon veröffentlicht sein.
+# Danach räumt der Job "cleanup" verwaiste Versionen in ghcr.io weg (z. B. das vorherige latest).
+name: Docker
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    uses: ./.github/workflows/tests.yml
+
+  image:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: balkonaut/balkonaut
+          ref: ${{ github.ref_name }}
+          path: kern
+
+      - id: v
+        run: |
+          image=ghcr.io/${GITHUB_REPOSITORY,,}
+          echo "tags=$image:${GITHUB_REF_NAME#v},$image:latest" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # Keine Attestations: die tauchen in ghcr.io sonst als zusätzliche "unknown/unknown"-Versionen auf
+          provenance: false
+          sbom: false
+          tags: ${{ steps.v.outputs.tags }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          # Build-Cache im Actions-Cache (nicht in ghcr.io), beschleunigt vor allem den arm64-Build unter QEMU
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  cleanup:
+    needs: image
+    # Läuft auch beim manuellen Start, wenn kein Image gebaut wurde
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      # Kennt Multi-Arch-Images: die Plattform-Images von latest und den Versionen bleiben erhalten
+      - name: Verwaiste Versionen löschen
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          delete-untagged: true

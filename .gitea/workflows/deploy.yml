@@ -1,0 +1,25 @@
+name: Testen
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kern und Handbuch holen
+        run: git clone --depth 1 https://github.com/balkonaut/balkonaut kern
+      - name: Docker-CLI bereitstellen
+        run: command -v docker || (apt-get update && apt-get install -y docker.io)
+      # Das Image baut GitHub nur bei einer neuen Version, hier nur Tests und Handbuch prüfen
+      - name: Tests (Python wie im Container)
+        run: docker build --target test .
+      - name: Handbuch
+        run: docker build --target docs .
+      - name: Aufräumen
+        if: always()
+        run: |
+          docker image prune -f
+          docker builder prune -f --filter until=72h
