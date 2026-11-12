@@ -22,3 +22,4 @@ jobs:
           ref: ${{ github.event_name == 'release' && github.ref_name || 'main' }}
           path: kern
       - run: docker build --target test .
+      - run: docker build --target docs .
