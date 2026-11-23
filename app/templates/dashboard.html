@@ -29,6 +29,17 @@
   .node .ico { color: var(--c); stroke-width: 1.8; }
   .node .lbl { font: 600 11px var(--mono); fill: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
   .node .w { font: 700 19px var(--mono); fill: var(--ink); }
+  /* Akku abgeklemmt (Szenario „Ohne Batterie“): Feld gestrichelt, Leitung unterbrochen, Hinweis statt Ladestand */
+  .off .node > rect:first-child { stroke: var(--muted); stroke-dasharray: 4 3; fill: none; }
+  .off .node .ico { color: var(--muted); }
+  .off .node .w { fill: var(--muted); font-size: 15px; }
+  .lane.off { stroke-dasharray: 3 4; }
+  .cut { stroke: var(--warn); stroke-width: 2.5; stroke-linecap: round; }
+  .unplugged { display: flex; gap: 12px; align-items: center; margin-top: 12px; padding: 12px;
+    border: 1.5px dashed var(--line); border-radius: 8px; }
+  .unplugged svg { flex: none; width: 32px; height: 32px; color: var(--muted); }
+  .unplugged .t { font-weight: 600; }
+  .unplugged .s { color: var(--muted); font-size: 14px; margin-top: 2px; }
   .hub rect { fill: var(--sun-soft); stroke: var(--sun); stroke-width: 1.5; rx: 4px; }
   .hub text { font: 700 11px var(--mono); fill: var(--sun-ink); text-anchor: middle; }  /* ohne Sperrung passt „Wechselrichter“ in den Kasten */
 
@@ -108,7 +119,7 @@
   <g class="node" transform="translate({{ x }} {{ y }})" style="--c:{{ color }}"><rect width="120" height="56"/>
     {# Platz bis zum Symbol reicht für etwa 12 Zeichen, längere Namen werden gestaucht #}
     <text class="lbl" x="10" y="19"{% if label|length > 12 %} textLength="86" lengthAdjust="spacingAndGlyphs"{% endif %}>{{ label }}</text><svg x="100" y="7" width="16" height="16" viewBox="0 0 24 24" class="ico"><use href="#i-{{ icon }}"/></svg>
-    <text class="w" x="10" y="41">{{ watts|abs_de(0) }} W</text>{{ caller() if caller }}</g>
+    <text class="w" x="10" y="41">{% if watts is string %}{{ watts }}{% else %}{{ watts|abs_de(0) }} W{% endif %}</text>{{ caller() if caller }}</g>
 {% endmacro %}
 {% macro ladder(fields) %}{# je Laderegler ein Feld, abwechselnd links und rechts, bis 3 je Seite, ohne Kreuzungen #}
   {% if fields|length == 1 %}{{ line("M200 66 V222", fields[0][1], "var(--sun)") }}{{ node(140, 10, "var(--sun)", fields[0][0], fields[0][1], fields[0][2]) }}
@@ -136,22 +147,25 @@
       {% set pv_ac = live.get("pv_ac_power") %}
       {# Module oben, je Wechselrichter ein Feld mit gemeinsamer Leistung (Werte je Modul liefern die Geräte nicht) #}
       {% if fields %}{{ ladder(fields) }}
-      {% elif pv_ac is none %}{{ line("M200 66 V222", live.pv, "var(--sun)") }}{{ node(140, 10, "var(--sun)", modules.storage or "Module", live.pv, "panel") }}
+      {% elif "pv_ac_power" not in live %}{{ line("M200 66 V222", live.pv, "var(--sun)") }}{{ node(140, 10, "var(--sun)", modules.storage or "Module", live.pv, "panel") }}
       {% else %}{{ line("M100 66 V182 H190 V222", live.get("pv_power"), "var(--sun)") }}{{ line("M300 66 V88", pv_ac, "var(--sun)") }}
         {{ line("M300 144 V182 H210 V222", pv_ac, "var(--sun)") }}
         {{ node(40, 10, "var(--sun)", modules.storage or "Module", live.get("pv_power"), "panel") }}{{ node(240, 10, "var(--sun)", modules.extra or "Module", pv_ac, "panel") }}
         {{ node(240, 88, "var(--sun)", extra_name, pv_ac, "sun") }}{% endif %}
-      {{ line("M150 242 H124", batt, "var(--batt-flow)", (batt or 0) < 0) }}
+      {% if battery_off %}<path class="lane off" d="M150 242 H124" stroke-width="2"/>
+      <g class="cut"><line x1="133" y1="234" x2="133" y2="250"/><line x1="141" y1="234" x2="141" y2="250"/></g>
+      {% else %}{{ line("M150 242 H124", batt, "var(--batt-flow)", (batt or 0) < 0) }}{% endif %}
       {{ line("M250 242 H276", house, "var(--leaf)") }}
       {{ line("M200 262 V341", grid, "var(--sky)", (grid or 0) > 0) }}
       <g class="hub"><rect x="150" y="222" width="100" height="40"/><text x="200" y="246">{{ hub_name }}</text></g>
-      {% call node(4, 214, "var(--batt-flow)", battery_name ~ " lädt" if (batt or 0) > 5 else battery_name ~ " entlädt" if (batt or 0) < -5 else battery_name, batt, "batt") %}
+      {% if battery_off %}<g class="off">{{ node(4, 214, "var(--muted)", battery_name, "abgeklemmt", "batt") }}</g>
+      {% else %}{% call node(4, 214, "var(--batt-flow)", battery_name ~ " lädt" if (batt or 0) > 5 else battery_name ~ " entlädt" if (batt or 0) < -5 else battery_name, batt, "batt") %}
         {% if gauge %}<rect x="10" y="47" width="100" height="3" fill="var(--line)"/>
         <rect x="10" y="47" width="{{ gauge.lo }}" height="3" fill="var(--muted)" fill-opacity=".45"/>
         <rect x="{{ 10 + gauge.hi }}" y="47" width="{{ 100 - gauge.hi }}" height="3" fill="var(--muted)" fill-opacity=".45"/>
         <rect class="soc" x="10" y="47" width="{{ [gauge.soc, 100]|min }}" height="3" style="--soc-h:{{ gauge.hue }}"/>
         {% for m in gauge.marks %}<rect class="t-{{ m.key }}" x="{{ 9 + m.value }}" y="43" width="2" height="11"/>{% endfor %}{% endif %}
-      {% endcall %}
+      {% endcall %}{% endif %}
       {{ node(276, 214, "var(--leaf)", "Haus", house, "home") }}
       {{ node(140, 341, "var(--sky)", "Einspeisung" if (grid or 0) < -5 else "Netzbezug", grid, "pole") }}
     </svg>
@@ -160,7 +174,13 @@
 
   <section class="card">
     <div class="eyebrow"><span class="chip" style="background:var(--batt-soft);color:var(--batt)"><svg class="ico" aria-hidden="true"><use href="#i-batt"/></svg></span>Akku</div>
-    {% if gauge %}{% set C = 2.639 %}
+    {% if battery_off %}
+    <div class="unplugged"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+      <rect x="3" y="7" width="15" height="10" rx="2"/><path d="M21 10v4"/><path d="M2 2l20 20"/></svg>
+      <div><div class="t">Akku abgeklemmt</div><div class="s">Szenario „Ohne Batterie“: Der Wechselrichter arbeitet ohne
+        Speicher, Ladestand und Grenzen werden nicht angezeigt.</div></div></div>
+    {% if mode %}<div class="mode"><div class="k">Szenario</div><div class="v">{{ mode }}</div></div>{% endif %}
+    {% elif gauge %}{% set C = 2.639 %}
     <div class="ring">
       <svg viewBox="0 0 100 100" role="img" aria-label="Ladestand {{ gauge.soc|de(0) }} %">
         <circle class="track" cx="50" cy="50" r="42"/>

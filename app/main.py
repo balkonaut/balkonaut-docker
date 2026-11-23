@@ -321,6 +321,7 @@ def dashboard(request: Request, zeitraum: str = "tag"):
         "periods": PERIODS, "period": period, "b": st["bilanz"][period], "akku": st["akku"][period],
         "heute": st["bilanz"]["tag"], "live": live, "gauge": soc_gauge(live),
         "mode": request.app.state.cloud_values.get("battery_mode"),
+        "battery_off": request.app.state.cloud_values.get("mode") == "6",  # Szenario „Ohne Batterie“
         "live_age": int(time.time() - st["stand"].timestamp()) if st["stand"] else None,
         "chart": chart(bars), "a": a, "warnings": st["warnungen"],
         "progress": min(a["bisher_gespart"] / a["kosten"] * 100, 100) if a["kosten"] else 0,
@@ -341,9 +342,9 @@ def pv_fields(live, extra_name):
                    for k, v in live.items() if k.startswith("pv_mppt_")), key=lambda f: -f[1])
     if not mppt:
         return []
-    if live.get("pv_ac_power") is not None:
+    if "pv_ac_power" in live:  # auch ohne aktuellen Wert, z. B. abends abgeschaltet
         mppt.append((extra_name, live["pv_ac_power"], "sun"))
-    return mppt if len(mppt) <= 6 else mppt[:5] + [("weitere", sum(f[1] for f in mppt[5:]), "panel")]
+    return mppt if len(mppt) <= 6 else mppt[:5] + [("weitere", sum(f[1] or 0 for f in mppt[5:]), "panel")]
 
 
 def history_data(request, ansicht, datum):
