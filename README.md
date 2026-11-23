@@ -49,7 +49,7 @@ git clone --depth 1 https://github.com/balkonaut/balkonaut kern
 docker compose up -d --build   # vorher in docker-compose.yml die Zeile "# build: ." aktivieren
 ```
 
-Für eine bestimmte Version beide Repositories auf denselben Tag setzen (`git clone --branch v1.0.3 ...`).
+Für eine bestimmte Version beide Repositories auf denselben Tag setzen (`git clone --branch v1.0.4 ...`).
 
 ## Fehler und Wünsche
 
