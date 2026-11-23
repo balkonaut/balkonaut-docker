@@ -267,7 +267,9 @@
   {{ kachel("akku", "verluste_wechselrichter", "Verluste Speicher-Wechselrichter", akku.verluste_wechselrichter|pct, akku.verluste_wechselrichter) }}
   {{ kachel("akku", "stunden_voll", "Stunden mit vollem Akku", akku.stunden_voll, sub="dabei eingespeist " ~ akku.einspeisung_bei_vollem_akku|de(1) ~ " kWh") }}
   {{ kachel("akku", "stunden_leer", "Stunden mit leerem Akku", akku.stunden_leer, sub="dabei Netzbezug " ~ akku.netzbezug_bei_leerem_akku|de(1) ~ " kWh (" ~ akku.kosten_bei_leerem_akku|de(2) ~ " €)") }}
-  {% if akku.groesserer_akku_jahr is not none %}{{ kachel("akku", "groesserer_akku", "Weiteres Akku-Modul", "bis " ~ akku.groesserer_akku_jahr|de(0) ~ " € im Jahr", akku.groesserer_akku_jahr, sub="mit " ~ akku.zusatz_kapazitaet|de(2) ~ " kWh mehr; im Zeitraum bis " ~ akku.groesserer_akku|de(1) ~ " kWh", wide=true) }}{% endif %}
+  {% if modul %}{% set priced = modul.jahre is not none %}{{ kachel("akku", "modul_jahre" if priced else "groesserer_akku", "Weiteres Akku-Modul", modul.mehr_jahr|de(0) ~ " € im Jahr", modul.jahre if priced else modul.mehr_jahr,
+     sub="mit " ~ modul.kapazitaet|de(2) ~ " kWh mehr" ~ ("; bezahlt nach " ~ modul.jahre|de(0) ~ " Jahren" if modul.jahre is not none else "")
+         ~ ("; Jahr nach PVGIS" if modul.hochrechnung == "pvgis" else "; aus den gemessenen Tagen"), wide=true) }}{% endif %}
 </div>
 
 <h2>Amortisation</h2>

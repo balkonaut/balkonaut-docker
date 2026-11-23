@@ -258,7 +258,8 @@ def api_status(request: Request):
     storage = request.app.state.storage
     now = time.time()
     return analytics.status(storage.hourly(int(now)), storage.latest(), now, cfg["prices"], cfg["system"]["cost"],
-                            config.commissioned(cfg), request.app.state.profile)
+                            config.commissioned(cfg), request.app.state.profile, cfg["system"].get("module_cost"),
+                            cfg.get("location"))
 
 
 @app.get("/api/v1/export")
@@ -319,6 +320,7 @@ def dashboard(request: Request, zeitraum: str = "tag"):
     return templates.TemplateResponse(request, "dashboard.html", {
         "setup": setup,
         "periods": PERIODS, "period": period, "b": st["bilanz"][period], "akku": st["akku"][period],
+        "modul": st["akku_modul"],
         "heute": st["bilanz"]["tag"], "live": live, "gauge": soc_gauge(live),
         "mode": request.app.state.cloud_values.get("battery_mode"),
         "battery_off": request.app.state.cloud_values.get("mode") == "6",  # Szenario „Ohne Batterie“
@@ -602,12 +604,15 @@ async def save_settings(request: Request):
     form = {k: v[0] for k, v in multi.items()}
     try:
         values = {k: float(form[k].replace(",", ".")) for k in ("energy", "feed_in", "cost")}
+        module = form.get("module_cost", "").strip()
+        values["module_cost"] = float(module.replace(",", ".")) if module else 0.0  # leer: kein Preis
         day = date.fromisoformat(form["commissioned"]) if form.get("commissioned") else None
-        if min(values.values()) < 0 or (day and day > date.today()):
+        if min(values.values()) < 0 or not all(map(math.isfinite, values.values())) or (day and day > date.today()):
             raise ValueError
     except (KeyError, ValueError):
         return await settings_page(request, cfg, 400, error=True)
     cfg["prices"].update(energy=values["energy"], feed_in=values["feed_in"])
-    cfg["system"].update(cost=values["cost"], commissioned=day, extra_name=form.get("extra_name", "").strip() or None)
+    cfg["system"].update(cost=values["cost"], commissioned=day, extra_name=form.get("extra_name", "").strip() or None,
+                         module_cost=values["module_cost"] or None)
     config.save(request.app.state.config_path, cfg)
     return RedirectResponse("einstellungen?gespeichert=1", status_code=303)  # relativ, falls die App unter einem Unterpfad läuft

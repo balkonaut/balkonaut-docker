@@ -10,7 +10,7 @@ from balkonaut.homeassistant import HomeAssistant
 
 DEFAULTS = {
     "prices": {"energy": 0.0, "feed_in": 0.0},  # €/kWh
-    "system": {"cost": 0.0, "commissioned": None},  # Anschaffungskosten in €, Inbetriebnahme (Datum)
+    "system": {"cost": 0.0, "commissioned": None, "module_cost": None},  # Anschaffungskosten, Inbetriebnahme, Preis Akku-Modul
 }
 
 

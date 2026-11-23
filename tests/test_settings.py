@@ -11,7 +11,12 @@ def test_settings_roundtrip(client, tmp_path):
     assert client.post("/einstellungen", data={"energy": "-1", "feed_in": "0", "cost": "0"}).status_code == 400
     assert "Gespeichert" in client.get("/einstellungen?gespeichert=1").text
     cfg = yaml.safe_load((tmp_path / "config.yaml").read_text())
-    assert cfg == {"prices": {"energy": 0.32, "feed_in": 0.0}, "system": {"cost": 1499.0, "commissioned": None, "extra_name": None}}
+    assert cfg == {"prices": {"energy": 0.32, "feed_in": 0.0},
+                   "system": {"cost": 1499.0, "commissioned": None, "module_cost": None, "extra_name": None}}
+    client.post("/einstellungen", data={"energy": "0,32", "feed_in": "0", "cost": "1499", "module_cost": "650"})
+    assert yaml.safe_load((tmp_path / "config.yaml").read_text())["system"]["module_cost"] == 650.0
+    assert client.post("/einstellungen", data={"energy": "0,32", "feed_in": "0", "cost": "1499",
+                                               "module_cost": "inf"}).status_code == 400  # nur endliche Zahlen
 
 
 def test_settings_commissioned(client):
