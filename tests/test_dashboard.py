@@ -174,3 +174,20 @@ def test_bar():
     assert bar(0, 10, 10, 20) == "M0 30V12Q0 10 2 10H8Q10 10 10 12V30Z"  # oben rund, unten eckig
     assert bar(0, 10, 10, 20, True) == "M0 10V28Q0 30 2 30H8Q10 30 10 28V10Z"  # nach unten: unten rund
     assert bar(0, 10, 10, 0) == ""
+
+
+def test_simulator(client):
+    assert "Noch keine Messwerte" in client.get("/simulator").text
+    now = int(time.time()) // 3600 * 3600
+    storage = app.state.storage
+    for t in range(now - 48 * 3600, now, 600):
+        sun = 10 <= (t // 3600) % 24 < 14
+        storage.add(t, {"grid_power": 0 if sun else 300, "output_power": 400 if sun else 0, "pv_power": 900 if sun else 0,
+                        "battery_soc": 50, "battery_capacity": 2.0, "battery_power": 500 if sun else 0})
+    storage.aggregate(now)
+    r = client.get("/simulator")
+    assert r.status_code == 200 and "Schnell vergleichen" in r.text and "+1 Akku-Modul" in r.text
+    r = client.get("/simulator?akku=3&module=150&limit=1200&regelung=grundlast&grundlast=200&preis=0,4")
+    assert r.status_code == 200 and 'value="150"' in r.text
+    assert "Akku: 0 bis 100" in client.get("/simulator?akku=1e9").text  # Grenzen wie in den Einstellungen
+    assert client.get("/simulator?akku=nan").status_code == 200

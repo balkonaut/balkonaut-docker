@@ -42,11 +42,13 @@
   header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 20px 0; }
   .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; font: 700 18px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
   header nav { display: flex; flex-wrap: wrap; gap: 6px; }
-  header nav a { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 500; }
+  header nav a { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 500; }
   header nav a:hover, .theme:hover { color: var(--ink); background: var(--card); }
   .theme { padding: 0 12px; border: 0; background: none; color: var(--muted); }
   header nav a[aria-current="page"] { background: var(--act-bg); color: var(--act-ink); }
-  @media (max-width: 720px) { header nav a span { display: none; } header nav a { padding: 0 12px; } .brand { width: 100%; } }
+  /* mittlere Breite: nur Symbole (Name bleibt als aria-label), schmal zusätzlich Marke in eigener Zeile */
+  @media (max-width: 1100px) { header nav a span { display: none; } header nav a { padding: 0 12px; } }
+  @media (max-width: 720px) { .brand { width: 100%; } }
 
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 20px; box-shadow: var(--shadow); min-width: 0;
     transition: transform .18s ease-out, box-shadow .18s ease-out, background-color .18s ease-out; }
@@ -138,6 +140,7 @@
   <symbol id="i-hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
   <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-sim" viewBox="0 0 24 24"><path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0M5.52 16h12.96"/></symbol>
   <symbol id="i-set" viewBox="0 0 24 24"><path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
   <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></symbol>
@@ -149,8 +152,8 @@
   <nav aria-label="Bereiche">
     {# Links relativ, damit sie auch unter einem Unterpfad (z. B. hinter einem Proxy) stimmen #}
     {% for slug, name, icon in [("", "Übersicht", "dash"), ("verlauf", "Verlauf", "hist"), ("nulleinspeisung", "Nulleinspeisung", "pulse"),
-                                ("bericht", "Bericht", "file"), ("einstellungen", "Einstellungen", "set"), ("https://balkonaut.github.io/balkonaut/", "Handbuch", "book")] %}
-    <a href="{{ slug or './' }}" aria-label="{{ name }}"{% if slug.startswith("https:") %} target="_blank" rel="noopener"{% endif %}{% if request.url.path == '/' + slug %} aria-current="page"{% endif %}><svg class="ico" aria-hidden="true"><use href="#i-{{ icon }}"/></svg><span>{{ name }}</span></a>
+                                ("bericht", "Bericht", "file"), ("simulator", "Simulator", "sim"), ("einstellungen", "Einstellungen", "set"), ("https://balkonaut.github.io/balkonaut/", "Handbuch", "book")] %}
+    <a href="{{ slug or './' }}" aria-label="{{ name }}" title="{{ name }}"{% if slug.startswith("https:") %} target="_blank" rel="noopener"{% endif %}{% if request.url.path == '/' + slug %} aria-current="page"{% endif %}><svg class="ico" aria-hidden="true"><use href="#i-{{ icon }}"/></svg><span>{{ name }}</span></a>
     {% endfor %}
   </nav>
   <button type="button" id="darstellung" class="theme" onclick="wechsleDarstellung()" aria-label="Darstellung: Automatisch"><svg class="ico" aria-hidden="true"><use href="#i-auto"/></svg></button>

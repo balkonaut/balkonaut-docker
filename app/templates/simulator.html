@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Simulator{% endblock %}
+{% block content %}
+<style>
+  .sim { display: grid; gap: 16px; grid-template-columns: minmax(16rem, 22rem) 1fr; align-items: start; }
+  @media (max-width: 48rem) { .sim { grid-template-columns: 1fr; } }
+  .simform label { display: block; margin: 12px 0 4px; }
+  .simform select, .simform input:not([type=radio]) { width: 100%; box-sizing: border-box; }
+  .simform select { font: inherit; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); min-height: 44px; }
+  .simform fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 14px 0 0; padding: 8px 12px 12px; }
+  .simform legend { padding: 0 4px; }
+  .simform .radio { display: flex; gap: 8px; align-items: center; margin: 8px 0 0; }
+  .simform input[type=radio] { width: auto; min-height: 0; padding: 0; margin: 0; accent-color: var(--sky); }
+  .simform .radio input[type=number] { width: 6em; }
+  .simform .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .simform .save { width: 100%; }
+  .big { font: 700 40px var(--mono); margin: 6px 0; } .big span { font-size: 16px; color: var(--muted); font-weight: 500; }
+  .pos { color: var(--leaf); } .neg { color: var(--warn); }
+  table.cmp { width: 100%; border-collapse: collapse; margin-top: 12px; font-variant-numeric: tabular-nums; }
+  .cmp th, .cmp td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  .cmp th:first-child { text-align: left; font-weight: 500; white-space: normal; }
+  .cmp thead th { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .preset { display: block; text-decoration: none; color: var(--ink); }
+  .preset:hover { border-color: var(--sky); }
+  .preset .value { font: 700 24px var(--mono); margin: 4px 0; }
+  .cmp-wrap { overflow-x: auto; }
+</style>
+<h1>Simulator</h1>
+<p class="label">Was wäre, wenn deine Anlage anders aussähe? Gerechnet Stunde für Stunde mit deinen Messwerten,
+{% if how == "pvgis" %}über ein ganzes Jahr: Ertrag je Monat nach PVGIS, Hausverbrauch wie an den gemessenen Tagen.
+{% else %}aus den gemessenen Stunden aufs Jahr hochgerechnet. Mit <a href="einstellungen#flaechen">Standort
+und Flächen</a> rechnet Balkonaut ein ganzes Jahr nach PVGIS.{% endif %}
+<a href="https://balkonaut.github.io/balkonaut/auswertung/#simulator" target="_blank" rel="noopener">Wie gerechnet wird</a></p>
+{% if not sim %}<p class="note err">Noch keine Messwerte.</p>{% else %}
+
+<h2>Schnell vergleichen</h2>
+<div class="grid">
+  {% for name, mehr, query in quick %}
+  <a class="card preset" href="simulator?{{ query }}#variante">
+    <div class="label">{{ name }}</div>
+    <div class="value {{ 'pos' if mehr >= 0 else 'neg' }}">{{ "+" if mehr >= 0 else "−" }}{{ mehr|abs_de(0) }} €</div>
+    <div class="label">im Jahr gegenüber heute</div>
+  </a>
+  {% endfor %}
+</div>
+
+<h2 id="variante">Eigene Variante</h2>
+<div class="sim">
+  <form method="get" action="simulator#variante" class="card simform">
+    <div class="label">Variante</div>
+    {% if errors %}<p class="field-error" role="alert">{{ errors|join("; ") }}</p>{% endif %}
+    <label for="akku">Akku (kWh)</label>
+    {% if module %}
+    <select id="akku" name="akku">
+      {% for n in range(0, 5) %}{% set c = (module * n)|round(2) %}
+      <option value="{{ c }}"{% if (c - form.akku)|abs < 0.01 %} selected{% endif %}>{{ c|de(2) }} ({{ "ohne" if n == 0 else n ~ (" Modul" if n == 1 else " Module") }}{{ ", heute" if (c - anlage.capacity)|abs < 0.01 }})</option>
+      {% endfor %}
+    </select>
+    {% else %}<input id="akku" name="akku" inputmode="decimal" value="{{ form.akku|de(2) }}">{% endif %}
+    <label for="module">Module (% von heute)</label>
+    <input id="module" name="module" type="number" inputmode="numeric" min="0" max="500" step="25" value="{{ form.module|round|int }}">
+    <label for="limit">Abgabelimit (W)</label>
+    <input id="limit" name="limit" type="number" inputmode="numeric" min="0" max="10000" step="100" value="{{ form.limit|round|int }}">
+    <fieldset><legend>Regelung</legend>
+      <label class="radio"><input type="radio" name="regelung" value="null"{% if not fixed %} checked{% endif %}> Nulleinspeisung (dem Verbrauch folgen)</label>
+      <label class="radio"><input type="radio" name="regelung" value="grundlast"{% if fixed %} checked{% endif %}> feste Grundlast
+        <input type="number" name="grundlast" min="0" max="5000" step="10" value="{{ form.grundlast|round|int }}" aria-label="Grundlast in W"> W</label>
+    </fieldset>
+    <div class="two">
+      <div><label for="unten">Untergrenze (%)</label><input id="unten" name="unten" type="number" min="0" max="100" value="{{ form.unten|round|int }}"></div>
+      <div><label for="oben">Obergrenze (%)</label><input id="oben" name="oben" type="number" min="0" max="100" value="{{ form.oben|round|int }}"></div>
+    </div>
+    <div class="two">
+      <div><label for="preis">Arbeitspreis (€/kWh)</label><input id="preis" name="preis" inputmode="decimal" value="{{ form.preis|de(2) }}"></div>
+      <div><label for="verguetung">Einspeisevergütung (€/kWh)</label><input id="verguetung" name="verguetung" inputmode="decimal" value="{{ form.verguetung|de(3) }}"></div>
+    </div>
+    <button class="save">Berechnen</button>
+  </form>
+  <div class="card">
+    <div class="label">Mehrersparnis der Variante</div>
+    <div class="big {{ 'pos' if sim.mehr >= 0 else 'neg' }}">{{ "+" if sim.mehr >= 0 else "−" }}{{ sim.mehr|abs_de(0) }} € <span>im Jahr</span></div>
+    <div class="cmp-wrap"><table class="cmp">
+      <thead><tr><th></th><th>heute</th><th>Variante</th><th>Unterschied</th></tr></thead>
+      <tbody>
+      {% for name, key, unit in [("Ersparnis", "ersparnis", "€"), ("Netzbezug", "netzbezug", "kWh"), ("Ins Haus abgegeben", "ins_haus", "kWh"),
+                                 ("Eingespeist", "einspeisung", "kWh"), ("Abgeregelt", "abgeregelt", "kWh"), ("In den Akku geladen", "geladen", "kWh")] %}
+      {% set d = sim.variante[key] - sim.heute[key] %}
+      <tr><th>{{ name }}</th><td>{{ sim.heute[key]|de(0) }} {{ unit }}</td><td>{{ sim.variante[key]|de(0) }} {{ unit }}</td>
+        <td>{{ "+" if d >= 0 else "−" }}{{ d|abs_de(0) }} {{ unit }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
