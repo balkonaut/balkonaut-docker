@@ -3,6 +3,7 @@ import importlib.metadata
 import json
 import logging
 import math
+import os
 import re
 import time
 from contextlib import asynccontextmanager
@@ -257,9 +258,16 @@ def api_status(request: Request):
     cfg = config.load(request.app.state.config_path)
     storage = request.app.state.storage
     now = time.time()
-    return analytics.status(storage.hourly(int(now)), storage.latest(), now, cfg["prices"], cfg["system"]["cost"],
-                            config.commissioned(cfg), request.app.state.profile, cfg["system"].get("module_cost"),
-                            cfg.get("location"))
+    st = analytics.status(storage.hourly(int(now)), storage.latest(), now, cfg["prices"], cfg["system"]["cost"],
+                          config.commissioned(cfg), request.app.state.profile, cfg["system"].get("module_cost"),
+                          cfg.get("location"))
+    if os.environ.get("BALKONAUT_UMZUG"):  # Image unter dem alten Namen (#170, Übergang bis 31.03.2027)
+        st["warnungen"].insert(0, {"code": "image_umgezogen", "text": MOVED})
+    return st
+
+
+MOVED = ("Das Docker-Image ist umgezogen: In der docker-compose.yml ghcr.io/balkonaut/balkonaut-docker:latest eintragen "
+         "und neu holen (Handbuch, Docker-App). Unter dem alten Namen gibt es Updates nur noch bis 31.03.2027.")
 
 
 @app.get("/api/v1/export")

@@ -25,6 +25,9 @@ FROM base
 COPY --from=docs /site handbuch
 
 ENV BALKONAUT_DATA=/data
+# 1 nur im Image unter dem alten Namen ghcr.io/balkonaut/balkonaut: die App zeigt dann den Umzugshinweis (#170)
+ARG BALKONAUT_UMZUG=
+ENV BALKONAUT_UMZUG=$BALKONAUT_UMZUG
 VOLUME /data
 
 EXPOSE 8000
