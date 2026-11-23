@@ -179,7 +179,6 @@
       <rect x="3" y="7" width="15" height="10" rx="2"/><path d="M21 10v4"/><path d="M2 2l20 20"/></svg>
       <div><div class="t">Akku abgeklemmt</div><div class="s">Szenario „Ohne Batterie“: Der Wechselrichter arbeitet ohne
         Speicher, Ladestand und Grenzen werden nicht angezeigt.</div></div></div>
-    {% if mode %}<div class="mode"><div class="k">Szenario</div><div class="v">{{ mode }}</div></div>{% endif %}
     {% elif gauge %}{% set C = 2.639 %}
     <div class="ring">
       <svg viewBox="0 0 100 100" role="img" aria-label="Ladestand {{ gauge.soc|de(0) }} %">
@@ -195,8 +194,8 @@
         {% if gauge.rest %}{% set m = gauge.rest.minutes %}<div class="label">{{ gauge.rest.target|de(0) }} % in ca. {% if m >= 60 %}{{ m // 60 }} h {% endif %}{{ m % 60 }} min</div>{% endif %}</div>
     </div>
     {% if gauge.marks %}<div class="lim-key">{% for m in gauge.marks %}<span><i class="t-{{ m.key }}"></i>{{ m.name }} {{ m.value|de(0) }} %</span>{% endfor %}</div>{% endif %}
-    {% if mode %}<div class="mode"><div class="k">Szenario</div><div class="v">{{ mode }}</div></div>{% endif %}
     {% else %}<p class="label">Noch kein Ladestand.</p>{% endif %}
+    {% if mode %}<div class="mode"><div class="k">Szenario</div><div class="v">{{ mode }}</div></div>{% endif %}
   </section>
 
   <section class="card">

@@ -6,10 +6,9 @@ import math
 import re
 import time
 from contextlib import asynccontextmanager
-from dataclasses import replace
 from datetime import date, datetime
 from pathlib import Path
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -17,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app import apcloud, collector, config, pvgis
-from balkonaut import analytics, devices, simulate, views
+from balkonaut import analytics, devices, views
 from balkonaut.profiles import direction
 from balkonaut.storage import Storage
 
@@ -391,54 +390,21 @@ def zero_feed_in(request: Request):
     return templates.TemplateResponse(request, "regulation.html", {"r": regulation_data(request)})
 
 
-# Simulator: Feld = (Bezeichnung, Minimum, Maximum)
-SIM_FIELDS = {"akku": ("Akku", 0, 100), "module": ("Module", 0, 500), "limit": ("Abgabelimit", 0, 10000),
-              "grundlast": ("Grundlast", 0, 5000), "unten": ("Untergrenze", 0, 100), "oben": ("Obergrenze", 0, 100),
-              "preis": ("Arbeitspreis", 0, 10), "verguetung": ("Einspeisevergütung", 0, 10)}
-
-
 @app.get("/simulator", include_in_schema=False)
 def simulator_page(request: Request):
-    """Was wäre, wenn: heutige Anlage gegen eine Variante, dazu fertige Vergleiche; Eingaben als GET, damit sich ein
-    Ergebnis verlinken lässt."""
+    """Was wäre, wenn (Rechnung in views.simulator); Eingaben als GET, damit sich ein Ergebnis verlinken lässt."""
     cfg = config.load(request.app.state.config_path)
-    storage = request.app.state.storage
-    now = time.time()
-    p = analytics.plant(storage.hourly(int(now)), now, request.app.state.profile, cfg.get("location"))
-    if not p:
-        return templates.TemplateResponse(request, "simulator.html", {"sim": None})
-    anlage, series, factor, how = p
-    prices = cfg["prices"]
-    form = {"akku": anlage.capacity, "module": 100, "limit": anlage.limit, "grundlast": 200, "unten": anlage.soc_min,
-            "oben": anlage.soc_max, "preis": prices["energy"], "verguetung": prices["feed_in"]}
-    errors = []
-    for key, (what, low, high) in SIM_FIELDS.items():
+    values, errors = {}, []
+    for key, (what, low, high) in views.SIM_FIELDS.items():
         if text := request.query_params.get(key, "").strip()[:20]:
             try:
-                form[key] = num(text, low, high, what)
+                values[key] = num(text, low, high, what)
             except ValueError as e:
                 errors.append(str(e))
-    fixed = request.query_params.get("regelung") == "grundlast"
-    variant = replace(anlage, capacity=form["akku"], pv_factor=form["module"] / 100, limit=form["limit"],
-                      soc_min=min(form["unten"], form["oben"]), soc_max=max(form["unten"], form["oben"]),
-                      base_load=form["grundlast"] if fixed else None)
-    result = simulate.compare(series, anlage, variant, prices,
-                              {"energy": form["preis"], "feed_in": form["verguetung"]}, factor)
-    module = anlage.capacity / 2
-    presets = ([("Ohne Akku", {"akku": 0}), ("+1 Akku-Modul", {"akku": anlage.capacity + module})] if module else []) + [
-        ("+50 % Module", {"module": 150}), (f"Limit {1200 if anlage.limit <= 800 else 800} W",
-                                           {"limit": 1200 if anlage.limit <= 800 else 800}),
-        ("Grundlast 200 W", {"regelung": "grundlast", "grundlast": 200})]
-    quick = []
-    for name, change in presets:
-        v = replace(anlage, capacity=change.get("akku", anlage.capacity), pv_factor=change.get("module", 100) / 100,
-                    limit=change.get("limit", anlage.limit),
-                    base_load=change.get("grundlast") if change.get("regelung") else None)
-        quick.append((name, simulate.compare(series, anlage, v, prices, factor=factor)["mehr"],
-                      urlencode(change)))
-    return templates.TemplateResponse(request, "simulator.html", {
-        "sim": result, "form": form, "fixed": fixed, "errors": errors, "quick": quick, "anlage": anlage,
-        "module": module, "how": how})
+    sim = views.simulator(request.app.state.storage, cfg["prices"], time.time(), values,
+                          request.query_params.get("regelung") == "grundlast", request.app.state.profile,
+                          cfg.get("location"))
+    return templates.TemplateResponse(request, "simulator.html", {"sim": sim, "errors": errors})
 
 
 DEVICE_NAMES = {"apsystems_ezhi": "APsystems EZHI", "shelly_em": "Shelly 3EM", "shelly_em1": "Shelly EM (eine Phase)",
